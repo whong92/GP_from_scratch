@@ -232,7 +232,7 @@ class GaussianProcessRegression():
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
 
         # Return the gradients
-        print('gradients: ', gradients)
+        # print('gradients: ', gradients)
         return gradients
 
     # ##########################################################################
@@ -261,7 +261,7 @@ class GaussianProcessRegression():
     # the optimal hyperparameters using BFGS.
     # ##########################################################################
     def optimize(self, params, disp=True):
-        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp}, callback=GaussianProcessRegression.print_param)
+        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp})
         return res.x
 
 if __name__ == '__main__':
