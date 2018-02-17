@@ -191,7 +191,7 @@ class GaussianProcessRegression():
         kExp = np.zeros(shape=(self.X.shape[0],self.X.shape[0]))
         for i in range(self.X.shape[0]):
             for j in range(self.X.shape[0]):
-                kExp[i,j] = np.square(np.linalg.norm(X[i,:] - X[j,:], ord=2))/(l**2)
+                kExp[i,j] = np.square(np.linalg.norm(self.X[i,:] - self.X[j,:], ord=2))/(l**2)
         return kExp
 
     # ##########################################################################
