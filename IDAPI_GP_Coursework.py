@@ -32,6 +32,7 @@ def loadData(df):
 def multivariateGaussianDraw(mean, cov):
     # Task 2:
     # Assuming access only to a normal distribution with zero mean and unit variance:
+    # we use the cholesky factor to transform the variable
     L = np.linalg.cholesky(cov)
     x = np.random.normal(size=mean.shape)
     y = np.matmul(L,x)
@@ -87,9 +88,7 @@ class RadialBasisFunction():
         covMat = np.zeros((n,n))
 
         # Task 1:
-        # TODO: Implement the covariance matrix here
-
-        # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2 = ||k_exp{pjq}||^2
+        # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2
         for p in range(n):
             for q in range(n):
                 covMat[p,q] = np.square(np.linalg.norm(X[p,:]-X[q,:],ord=2))
@@ -140,12 +139,13 @@ class GaussianProcessRegression():
 
         # compute kernel matrices
         params = self.k.getParams()
+        # 'clean' rbf
         rbf = RadialBasisFunction(params) 
-        rbf.sigma2_n = None # 'clean' rbf
+        rbf.sigma2_n = None
         # extract only the rows corresponding to Xa
         kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
         kX_Xa = np.transpose(kXa_X)
-        # 'noisy'?'clean'? covariance for training points
+        # covariance for training points
         K = self.K
         K_inv = np.linalg.inv(K)
 
@@ -153,7 +153,7 @@ class GaussianProcessRegression():
         G_Kalman = np.matmul(kXa_X,K_inv)
         mean_fa = mean_fa + np.matmul(G_Kalman,self.y) # assuming zero prior mean
 
-        #compuote posterior covariance
+        # compute posterior covariance
         kXa_Xa = rbf.covMatrix(Xa)
         cov_fa = kXa_Xa - np.matmul(G_Kalman,kX_Xa)
 
@@ -172,22 +172,24 @@ class GaussianProcessRegression():
             
         mll = 0
         # Task 4:
-        # TODO: Calculate the log marginal likelihood ( mll ) of self.y
-        # print('K rank: ', np.linalg.matrix_rank(K))
         K_inv = np.linalg.inv(K)
         mll += 0.5*np.matmul(np.transpose(self.y),np.matmul(K_inv,self.y))
+        # compute log determinant directly to avoid determinant overflows
         _,logdet = np.linalg.slogdet(K)
         mll += 0.5*logdet
         mll+= self.K.shape[0]*np.log(2*np.pi)/2
         # Return mll
-        # print('MLL', mll)
         return mll
 
     @staticmethod
     def print_param(xk):
         print(xk)
-    
-    def computeKExp(self,l):
+
+    # ##########################################################################
+    # Computes the multiplier that shows up in the partial derivate of K matrix
+    # w.r.t length_scale. I call this the length factor
+    # ##########################################################################
+    def length_factor(self,l):
         kExp = np.zeros(shape=(self.X.shape[0],self.X.shape[0]))
         for i in range(self.X.shape[0]):
             for j in range(self.X.shape[0]):
@@ -206,18 +208,16 @@ class GaussianProcessRegression():
 
         grad_ln_sigma_f = grad_ln_length_scale = grad_ln_sigma_n = 0
         # Task 5:
-        # TODO: calculate the gradients of the negative log marginal likelihood
-        # wrt. the hyperparameters
-        
+        # extract parameters relevant to computation of the gradient
         sigma2_f, length_scale, sigma2_n = self.k.getParamsExp()
         K_clean = K - sigma2_n*np.identity(self.K.shape[0])
 
         # all multiplications are element-wise
         d_K_d_ln_sigmaf= 2*K_clean
-        #d_K_d_ln_lengthscale  = (-2/length_scale)*np.log(K_clean/sigma2_f)*K_clean
         d_K_d_ln_lengthscale  = self.computeKExp(length_scale)*K_clean
         d_K_d_ln_sigman =2*sigma2_n*np.identity(K.shape[0])
 
+        # compute common factors of gradients
         K_inv = np.linalg.inv(K)
         alpha = np.matmul(K_inv, self.y)
         left = np.matmul(alpha,np.transpose(alpha)) - K_inv
@@ -226,13 +226,11 @@ class GaussianProcessRegression():
         grad_ln_sigma_f = -0.5*np.trace(np.matmul(left, d_K_d_ln_sigmaf))
         grad_ln_length_scale = -0.5*np.trace(np.matmul(left, d_K_d_ln_lengthscale))
         grad_ln_sigma_n = -0.5*np.trace(np.matmul(left, d_K_d_ln_sigman))
-        #grad_ln_sigma_n = 0.0
 
         # Combine gradients
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
 
         # Return the gradients
-        # print('gradients: ', gradients)
         return gradients
 
     # ##########################################################################
