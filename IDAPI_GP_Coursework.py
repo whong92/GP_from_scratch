@@ -33,9 +33,8 @@ def multivariateGaussianDraw(mean, cov):
     # Task 2:
     # Assuming access only to a normal distribution with zero mean and unit variance:
     L = np.linalg.cholesky(cov)
-    L_T = np.transpose(L)
     x = np.random.normal(size=mean.shape)
-    y = np.matmul(L_T,x)
+    y = np.matmul(L,x)
     y += mean
     return y
 
@@ -147,7 +146,7 @@ class GaussianProcessRegression():
         kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
         kX_Xa = np.transpose(kXa_X)
         # 'noisy'?'clean'? covariance for training points
-        K = rbf.covMatrix(self.X)
+        K = self.K
         K_inv = np.linalg.inv(K)
 
         # compute posterior mean
