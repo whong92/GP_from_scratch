@@ -30,12 +30,15 @@ def loadData(df):
 # Returns a single sample from a multivariate Gaussian with mean and cov.
 # ##############################################################################
 def multivariateGaussianDraw(mean, cov):
-    sample = np.zeros((mean.shape[0], )) # This is only a placeholder
     # Task 2:
-    # TODO: Implement a draw from a multivariate Gaussian here
+    # Assuming access only to a normal distribution with zero mean and unit variance:
+    L = np.linalg.cholesky(cov)
+    L_T = np.transpose(L)
+    x = np.random.normal(size=mean.shape)
+    y = np.matmul(L_T,x)
+    y += mean
+    return y
 
-    # Return drawn sample
-    return sample
 
 # ##############################################################################
 # RadialBasisFunction for the kernel function
@@ -87,6 +90,13 @@ class RadialBasisFunction():
         # Task 1:
         # TODO: Implement the covariance matrix here
 
+        # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2 = ||k_exp{pjq}||^2
+        for p in range(n):
+            for q in range(n):
+                covMat[p,q] = np.square(np.linalg.norm(X[p,:]-X[q,:],ord=2))
+        covMat = -covMat/(2*(self.length_scale**2))
+        covMat = np.exp(covMat)
+        covMat = self.sigma2_f*covMat
 
 
         # If additive Gaussian noise is provided, this adds the sigma2_n along
@@ -128,7 +138,24 @@ class GaussianProcessRegression():
         mean_fa = np.zeros((Xa.shape[0], 1))
         cov_fa = np.zeros((Xa.shape[0], Xa.shape[0]))
         # Task 3:
-        # TODO: compute the mean and covariance of the prediction
+
+        # compute kernel matrices
+        params = self.k.getParams()
+        rbf = RadialBasisFunction([params[0], params[1], 0.0]) # 'clean' rbf
+        # extract only the rows corresponding to Xa
+        kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
+        kX_Xa = np.transpose(kXa_X)
+        # 'clean' covariance for training points
+        K = rbf.covMatrix(self.X) 
+        K_inv = np.linalg.inv(K)
+
+        # compute posterior mean
+        G_Kalman = np.matmul(kXa_X,K_inv)
+        mean_fa = mean_fa + np.matmul(G_Kalman,self.y) # assuming zero prior mean
+
+        #compuote posterior covariance
+        kXa_Xa = rbf.covMatrix(Xa)
+        cov_fa = kXa_Xa - np.matmul(G_Kalman,kX_Xa)
 
         # Return the mean and covariance
         return mean_fa, cov_fa
@@ -140,13 +167,32 @@ class GaussianProcessRegression():
     def logMarginalLikelihood(self, params=None):
         if params is not None:
             K = self.KMat(self.X, params)
-
+        else:
+            K = self.K
+            
         mll = 0
         # Task 4:
         # TODO: Calculate the log marginal likelihood ( mll ) of self.y
-
+        # print('K rank: ', np.linalg.matrix_rank(K))
+        K_inv = np.linalg.inv(K)
+        mll += 0.5*np.matmul(np.transpose(self.y),np.matmul(K_inv,self.y))
+        _,logdet = np.linalg.slogdet(K)
+        mll += 0.5*logdet
+        mll+= self.K.shape[0]*np.log(2*np.pi)/2
         # Return mll
+        # print('MLL', mll)
         return mll
+
+    @staticmethod
+    def print_param(xk):
+        print(xk)
+    
+    def computeKExp(self,l):
+        kExp = np.zeros(shape=(self.X.shape[0],self.X.shape[0]))
+        for i in range(self.X.shape[0]):
+            for j in range(self.X.shape[0]):
+                kExp[i,j] = np.square(np.linalg.norm(X[i,:] - X[j,:], ord=2))/(l**2)
+        return kExp
 
     # ##########################################################################
     # Computes the gradients of the negative log marginal likelihood wrt each
@@ -155,17 +201,38 @@ class GaussianProcessRegression():
     def gradLogMarginalLikelihood(self, params=None):
         if params is not None:
             K = self.KMat(self.X, params)
+        else:
+            K = self.K
 
         grad_ln_sigma_f = grad_ln_length_scale = grad_ln_sigma_n = 0
         # Task 5:
         # TODO: calculate the gradients of the negative log marginal likelihood
         # wrt. the hyperparameters
+        
+        sigma2_f, length_scale, sigma2_n = self.k.getParamsExp()
+        K_clean = K - sigma2_n*np.identity(self.K.shape[0])
 
+        # all multiplications are element-wise
+        d_K_d_ln_sigmaf= 2*K_clean
+        #d_K_d_ln_lengthscale  = (-2/length_scale)*np.log(K_clean/sigma2_f)*K_clean
+        d_K_d_ln_lengthscale  = self.computeKExp(length_scale)*K_clean
+        d_K_d_ln_sigman =2*sigma2_n*np.identity(K.shape[0])
+
+        K_inv = np.linalg.inv(K)
+        alpha = np.matmul(K_inv, self.y)
+        left = np.matmul(alpha,np.transpose(alpha)) - K_inv
+
+        # compute gradients
+        grad_ln_sigma_f = -0.5*np.trace(np.matmul(left, d_K_d_ln_sigmaf))
+        grad_ln_length_scale = -0.5*np.trace(np.matmul(left, d_K_d_ln_lengthscale))
+        grad_ln_sigma_n = -0.5*np.trace(np.matmul(left, d_K_d_ln_sigman))
+        #grad_ln_sigma_n = 0.0
 
         # Combine gradients
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
 
         # Return the gradients
+        print('gradients: ', gradients)
         return gradients
 
     # ##########################################################################
@@ -194,7 +261,7 @@ class GaussianProcessRegression():
     # the optimal hyperparameters using BFGS.
     # ##########################################################################
     def optimize(self, params, disp=True):
-        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp})
+        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp}, callback=GaussianProcessRegression.print_param)
         return res.x
 
 if __name__ == '__main__':
@@ -206,3 +273,100 @@ if __name__ == '__main__':
     # will be based on importing this code and calling
     # specific functions with custom input.
     ##########################
+
+    import matplotlib.pyplot as plt
+    
+    d = 2
+    mean = np.ones((d,))
+    cov = np.array([[1,0.5],[0.5,1]])
+    for i in range(500):
+        sample = multivariateGaussianDraw(mean, cov)
+        plt.plot(sample[0],sample[1],'bo')
+    plt.xlim([-3,4])
+    plt.ylim([-3,4])
+    plt.show()
+
+    rbf = RadialBasisFunction([0,0,0])
+    # 2 far-away points
+    cov = rbf.covMatrix(np.array([[1,2,5,6],[3,9,7,8]]))
+    print(cov)
+    # 2 close points
+    cov = rbf.covMatrix(np.array([[1,2,5,6],[1.01,2.01,5.01,6.01]]))
+    print(cov)
+
+    # Task 3: load yacht data
+    X, y, Xa, ya = loadData('./yacht_hydrodynamics.data')
+    params = [0.5,np.log(0.1),0.5*np.log(0.5)]
+    gpr = GaussianProcessRegression(X, y, RadialBasisFunction(params))
+    mean_fa, cov_fa = gpr.predict(Xa)
+    print('posterior mean for yacht data:')
+    print(mean_fa)
+    print('function values for yacht data')
+    print(ya)
+    print('posterior covariance for yacht data:')
+    print(cov_fa)
+
+    # Task 4
+    print('log marginal likelihood for yacht data: ')
+    mll = gpr.logMarginalLikelihood()
+    print(-mll)
+
+    # Task 5
+    print('log marginal likelihood gradients for yacht data: ')
+    gmll = gpr.gradLogMarginalLikelihood()
+    print(-gmll)
+
+    # Task 6
+
+    print('optimized hyperparams for yacht data: ')
+    params = gpr.optimize([0.5,np.log(0.1),0.5*np.log(0.5)])
+    #params = gpr.optimize([0.0,0.0,0.0])
+    print(params)
+    
+    """
+
+    trace = np.array([
+        [-0.50815082, -2.24149568, -0.34657359],
+        [-0.62806999,  0.78044774, -0.34657359],
+        [-0.58828559,  0.98976046, -0.34657359],
+        [-0.40591622,  0.96904085, -0.34657359],
+        [ 0.00178089,  0.94807203, -0.34657359],
+        [ 0.63649971,  1.09573418, -0.34657359],
+        [ 0.95615149,  1.34116559, -0.34657359],
+        [ 1.36751497,  1.58670896, -0.34657359],
+        [ 1.64613599,  1.71381457, -0.34657359],
+        [ 1.80199889,  1.78447   , -0.34657359],
+        [ 1.84340886,  1.80417483, -0.34657359],
+        [ 1.8478872 ,  1.80636196, -0.34657359],
+        [ 1.84799097,  1.8064148 , -0.34657359],
+        [ 1.84799116,  1.80641502, -0.34657359]
+    ])
+
+    sigma_n = 0.5*np.log(0.5)
+    num_points = 20
+    L = np.linspace(-1.0,5.0,num_points)
+    S = np.linspace(-1.0,5.0,num_points)
+    MLL = np.zeros(shape=(num_points,num_points))
+    dl = np.zeros(shape=(num_points,num_points))
+    ds2 = np.zeros(shape=(num_points,num_points))
+    for i in range(num_points):
+        for j in range(num_points):
+            MLL[i,j] = gpr.logMarginalLikelihood(params=[L[i],S[j],sigma_n])
+            ds2[i,j], dl[i,j], _ = gpr.gradLogMarginalLikelihood()
+            print('MLL', MLL[i,j])
+
+    plt.subplot(3,1,1)
+    plt.contourf(L,S,MLL)
+    plt.colorbar()
+    plt.plot(trace[:,0], trace[:,1], '-o')
+    
+    plt.subplot(3,1,2)
+    plt.contourf(L,S,dl)
+    plt.colorbar()
+    
+    plt.subplot(3,1,3)
+    plt.contourf(L,S,ds2)
+    plt.colorbar()
+    plt.show()
+    """
+    
