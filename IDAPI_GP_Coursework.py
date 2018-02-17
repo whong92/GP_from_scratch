@@ -141,13 +141,14 @@ class GaussianProcessRegression():
 
         # compute kernel matrices
         params = self.k.getParams()
-        rbf = RadialBasisFunction([params[0], params[1], 0.0]) # 'clean' rbf
+        rbf = RadialBasisFunction(params) 
+        rbf.sigma2_n = None # 'clean' rbf
         # extract only the rows corresponding to Xa
         kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
         kX_Xa = np.transpose(kXa_X)
         # 'clean' covariance for training points
-        #K = rbf.covMatrix(self.X) 
-        K_inv = np.linalg.inv(self.K)
+        K = rbf.covMatrix(self.X) 
+        K_inv = np.linalg.inv(K)
 
         # compute posterior mean
         G_Kalman = np.matmul(kXa_X,K_inv)
