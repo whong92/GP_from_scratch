@@ -214,7 +214,7 @@ class GaussianProcessRegression():
 
         # all multiplications are element-wise
         d_K_d_ln_sigmaf= 2*K_clean
-        d_K_d_ln_lengthscale  = self.computeKExp(length_scale)*K_clean
+        d_K_d_ln_lengthscale  = self.length_factor(length_scale)*K_clean
         d_K_d_ln_sigman =2*sigma2_n*np.identity(K.shape[0])
 
         # compute common factors of gradients
