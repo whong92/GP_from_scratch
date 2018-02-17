@@ -146,8 +146,8 @@ class GaussianProcessRegression():
         kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
         kX_Xa = np.transpose(kXa_X)
         # 'clean' covariance for training points
-        K = rbf.covMatrix(self.X) 
-        K_inv = np.linalg.inv(K)
+        #K = rbf.covMatrix(self.X) 
+        K_inv = np.linalg.inv(self.K)
 
         # compute posterior mean
         G_Kalman = np.matmul(kXa_X,K_inv)
