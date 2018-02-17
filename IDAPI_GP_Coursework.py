@@ -146,8 +146,8 @@ class GaussianProcessRegression():
         # extract only the rows corresponding to Xa
         kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
         kX_Xa = np.transpose(kXa_X)
-        # 'clean' covariance for training points
-        K = self.K 
+        # 'noisy'?'clean'? covariance for training points
+        K = rbf.covMatrix(self.X)
         K_inv = np.linalg.inv(K)
 
         # compute posterior mean
