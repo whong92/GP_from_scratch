@@ -147,7 +147,7 @@ class GaussianProcessRegression():
         kXa_X = rbf.covMatrix(Xa,self.X)[:Xa.shape[0],Xa.shape[0]:]
         kX_Xa = np.transpose(kXa_X)
         # 'clean' covariance for training points
-        K = rbf.covMatrix(self.X) 
+        K = self.K 
         K_inv = np.linalg.inv(K)
 
         # compute posterior mean
@@ -318,13 +318,13 @@ if __name__ == '__main__':
     print(-gmll)
 
     # Task 6
-
+    """
     print('optimized hyperparams for yacht data: ')
     params = gpr.optimize([0.5,np.log(0.1),0.5*np.log(0.5)])
     #params = gpr.optimize([0.0,0.0,0.0])
     print(params)
     
-    """
+
 
     trace = np.array([
         [-0.50815082, -2.24149568, -0.34657359],
