@@ -140,9 +140,7 @@ class GaussianProcessRegression():
     # ##########################################################################
     def KMat(self, X, params=None):
         if params is not None:
-            params = np.reshape(params, (3,))
             self.k.setParams(params)
-
 
         K = self.k.covMatrix(X)
         self.K = K # add a 'jitter' term for stability
@@ -236,7 +234,6 @@ class GaussianProcessRegression():
         mll += 0.5*logdet
         mll+= self.K.shape[0]*np.log(2*np.pi)/2
         # Return mll
-        print(mll)
         return mll[0][0]
 
     @staticmethod
@@ -283,7 +280,6 @@ class GaussianProcessRegression():
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
 
         # Return the gradients
-        # print('gradients: ', gradients)
         return gradients
 
     # ##########################################################################
