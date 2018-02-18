@@ -48,6 +48,7 @@ def multivariateGaussianDraw(mean, cov):
 # ##############################################################################
 class RadialBasisFunction():
     def __init__(self, params):
+        print('Hello World')
         self.ln_sigma_f = params[0]
         self.ln_length_scale = params[1]
         self.ln_sigma_n = params[2]
