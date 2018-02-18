@@ -71,11 +71,20 @@ class RadialBasisFunction():
     def getParamsExp(self):
         return np.array([self.sigma2_f, self.length_scale, self.sigma2_n])
 
+    def cacheLastCovariance(self, covMat, exponent):
+        self.covMat = covMat
+        self.exponent = exponent
+
+    def getCachedCovariance(self):
+        return self.covMat, self.exponent
+    
     # ##########################################################################
     # covMatrix computes the covariance matrix for the provided matrix X using
     # the RBF. If two matrices are provided, for a training set and a test set,
     # then covMatrix computes the covariance matrix between all inputs in the
     # training and test set.
+    # NOTE: Besides that, this function also caches the last computed covariance
+    # and its exponent in self.covMat and self.exponent, to save on some computation
     # ##########################################################################
     def covMatrix(self, X, Xa=None):
         if Xa is not None:
@@ -88,12 +97,26 @@ class RadialBasisFunction():
         covMat = np.zeros((n,n))
 
         # Task 1:
+
+        # build the matrices X_p, where X_p[:,:,k] = X[:,:]
+        # and X_q[i,:,:] = [X[i,:], X[i,:], X[i,:] ...]
+        X_p = np.zeros((X.shape[0],X.shape[1],1))
+        X_p[:,:,0] = X
+        for i in range(n-1):
+            X_p = np.dstack((X_p,X))
+
+        X_q = np.zeros((1,X.shape[1],X.shape[0]))
+        X_t = np.zeros((1,X.shape[1],X.shape[0]))
+        X_t[0,:,:] = np.transpose(X)
+        X_q[0,:,:] = X_t[0,:,:]
+        for i in range(n-1):
+            X_q = np.vstack((X_q,X_t))
+            
         # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2
-        for p in range(n):
-            for q in range(n):
-                covMat[p,q] = np.square(np.linalg.norm(X[p,:]-X[q,:],ord=2))
-        covMat = -covMat/(2*(self.length_scale**2))
-        covMat = np.exp(covMat)
+        # compute the exponent: k_{pq} = sum_j (X_{pj} - X_{qj})^2
+        exponent = np.sum(np.square(X_p - X_q), axis=1)
+        exponent = -exponent/(2*(self.length_scale**2))
+        covMat = np.exp(exponent)
         covMat = self.sigma2_f*covMat
 
 
@@ -104,6 +127,9 @@ class RadialBasisFunction():
         if self.sigma2_n is not None:
             covMat += self.sigma2_n*np.identity(n)
 
+        # Save on some computation by caching results of this calculation
+        self.cacheLastCovariance(covMat, exponent)
+            
         # Return computed covariance matrix
         return covMat
 
@@ -115,6 +141,8 @@ class GaussianProcessRegression():
         self.y = y
         self.k = k
         self.K = self.KMat(self.X)
+        self.K_inv = np.linalg.inv(self.K)
+        _, self.K_exp = self.k.getCachedCovariance()
 
     # ##########################################################################
     # Recomputes the covariance matrix and the inverse covariance
@@ -125,6 +153,8 @@ class GaussianProcessRegression():
             self.k.setParams(params)
         K = self.k.covMatrix(X)
         self.K = K
+        self.K_inv = np.linalg.inv(K) # cache the inverse for later use
+        _, self.K_exp = self.k.getCachedCovariance() # cache the exponent for later use
         return K
 
     # ##########################################################################
@@ -147,7 +177,7 @@ class GaussianProcessRegression():
         kX_Xa = np.transpose(kXa_X)
         # covariance for training points
         K = self.K
-        K_inv = np.linalg.inv(K)
+        K_inv = self.K_inv
 
         # compute posterior mean
         G_Kalman = np.matmul(kXa_X,K_inv)
@@ -169,10 +199,11 @@ class GaussianProcessRegression():
             K = self.KMat(self.X, params)
         else:
             K = self.K
+
+        K_inv = self.K_inv
             
         mll = 0
         # Task 4:
-        K_inv = np.linalg.inv(K)
         mll += 0.5*np.matmul(np.transpose(self.y),np.matmul(K_inv,self.y))
         # compute log determinant directly to avoid determinant overflows
         _,logdet = np.linalg.slogdet(K)
@@ -183,18 +214,8 @@ class GaussianProcessRegression():
 
     @staticmethod
     def print_param(xk):
-        print(xk)
+        print('params: ', xk)
 
-    # ##########################################################################
-    # Computes the multiplier that shows up in the partial derivate of K matrix
-    # w.r.t length_scale. I call this the length factor
-    # ##########################################################################
-    def length_factor(self,l):
-        kExp = np.zeros(shape=(self.X.shape[0],self.X.shape[0]))
-        for i in range(self.X.shape[0]):
-            for j in range(self.X.shape[0]):
-                kExp[i,j] = np.square(np.linalg.norm(self.X[i,:] - self.X[j,:], ord=2))/(l**2)
-        return kExp
 
     # ##########################################################################
     # Computes the gradients of the negative log marginal likelihood wrt each
@@ -206,6 +227,10 @@ class GaussianProcessRegression():
         else:
             K = self.K
 
+        # fetch cached inverse and exponent
+        K_inv = self.K_inv
+        K_exp = self.K_exp
+
         grad_ln_sigma_f = grad_ln_length_scale = grad_ln_sigma_n = 0
         # Task 5:
         # extract parameters relevant to computation of the gradient
@@ -214,7 +239,7 @@ class GaussianProcessRegression():
 
         # all multiplications are element-wise
         d_K_d_ln_sigmaf= 2*K_clean
-        d_K_d_ln_lengthscale  = self.length_factor(length_scale)*K_clean
+        d_K_d_ln_lengthscale  = -2*K_exp*K_clean
         d_K_d_ln_sigman =2*sigma2_n*np.identity(K.shape[0])
 
         # compute common factors of gradients
@@ -259,7 +284,7 @@ class GaussianProcessRegression():
     # the optimal hyperparameters using BFGS.
     # ##########################################################################
     def optimize(self, params, disp=True):
-        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp})
+        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp}, callback=GaussianProcessRegression.print_param)
         return res.x
 
 if __name__ == '__main__':
@@ -315,14 +340,14 @@ if __name__ == '__main__':
     print(-gmll)
 
     # Task 6
-    """
+
     print('optimized hyperparams for yacht data: ')
     params = gpr.optimize([0.5,np.log(0.1),0.5*np.log(0.5)])
     #params = gpr.optimize([0.0,0.0,0.0])
     print(params)
     
 
-
+    """
     trace = np.array([
         [-0.50815082, -2.24149568, -0.34657359],
         [-0.62806999,  0.78044774, -0.34657359],
