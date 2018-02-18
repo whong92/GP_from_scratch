@@ -143,10 +143,9 @@ class GaussianProcessRegression():
             self.k.setParams(params)
 
         K = self.k.covMatrix(X)
-        self.K = K # add a 'jitter' term for stability
+        self.K = K
         self.K_inv = np.linalg.inv(K) # cache the inverse for later use
         self.K_exp = self.compute_exponent(X, params) # cache the exponent for later use
-        # self.K += 1e-6*np.identity(self.K.shape[0])
         return K
 
     def compute_exponent(self, X, params=None):
@@ -289,7 +288,7 @@ class GaussianProcessRegression():
         mse = 0
         # Task 7:
         # TODO: Implement the MSE between ya and fbar
-
+        mse = np.mean(np.square(ya - fbar))
         # Return mse
         return mse
 
