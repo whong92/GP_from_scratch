@@ -141,7 +141,7 @@ class GaussianProcessRegression():
     def KMat(self, X, params=None):
         if params is not None:
             if not (len(params)==3):
-                params = params[0]
+                params = params[0,:]
                 #print('ERROR! PARAMS IS: ', params)
             self.k.setParams(params)
         K = self.k.covMatrix(X)
