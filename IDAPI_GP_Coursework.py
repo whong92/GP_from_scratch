@@ -48,7 +48,6 @@ def multivariateGaussianDraw(mean, cov):
 # ##############################################################################
 class RadialBasisFunction():
     def __init__(self, params):
-        print('Hello World')
         self.ln_sigma_f = params[0]
         self.ln_length_scale = params[1]
         self.ln_sigma_n = params[2]
@@ -88,6 +87,7 @@ class RadialBasisFunction():
     # and its exponent in self.covMat and self.exponent, to save on some computation
     # ##########################################################################
     def covMatrix(self, X, Xa=None):
+        print('Hello World')
         if Xa is not None:
             X_aug = np.zeros((X.shape[0]+Xa.shape[0], X.shape[1]))
             X_aug[:X.shape[0], :X.shape[1]] = X
