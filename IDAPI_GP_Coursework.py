@@ -70,13 +70,6 @@ class RadialBasisFunction():
 
     def getParamsExp(self):
         return np.array([self.sigma2_f, self.length_scale, self.sigma2_n])
-
-    def cacheLastCovariance(self, covMat, exponent):
-        self.covMat = covMat
-        self.exponent = exponent
-
-    def getCachedCovariance(self):
-        return self.covMat, self.exponent
     
     # ##########################################################################
     # covMatrix computes the covariance matrix for the provided matrix X using
@@ -87,7 +80,6 @@ class RadialBasisFunction():
     # and its exponent in self.covMat and self.exponent, to save on some computation
     # ##########################################################################
     def covMatrix(self, X, Xa=None):
-        print('Hello World')
         if Xa is not None:
             X_aug = np.zeros((X.shape[0]+Xa.shape[0], X.shape[1]))
             X_aug[:X.shape[0], :X.shape[1]] = X
@@ -127,9 +119,6 @@ class RadialBasisFunction():
         # quadrant.
         if self.sigma2_n is not None:
             covMat += self.sigma2_n*np.identity(n)
-
-        # Save on some computation by caching results of this calculation
-        self.cacheLastCovariance(covMat, exponent)
             
         # Return computed covariance matrix
         return covMat
@@ -141,9 +130,9 @@ class GaussianProcessRegression():
         self.n = X.shape[0]
         self.y = y
         self.k = k
+        self.K_exp = None
         self.K = self.KMat(self.X)
         self.K_inv = np.linalg.inv(self.K)
-        _, self.K_exp = self.k.getCachedCovariance()
 
     # ##########################################################################
     # Recomputes the covariance matrix and the inverse covariance
@@ -155,9 +144,41 @@ class GaussianProcessRegression():
         K = self.k.covMatrix(X)
         self.K = K
         self.K_inv = np.linalg.inv(K) # cache the inverse for later use
-        _, self.K_exp = self.k.getCachedCovariance() # cache the exponent for later use
+        self.K_exp = self.compute_exponent(X, params) # cache the exponent for later use
         return K
 
+    def compute_exponent(self, X, params=None):
+
+        if params is None:
+            params = self.k.getParams()
+
+        length_scale = np.exp(params[1])
+        n = X.shape[0]
+            
+        # build the matrices X_p, where X_p[:,:,k] = X[:,:]
+        # and X_q[i,:,:] = [X[i,:], X[i,:], X[i,:] ...]
+        X_p = np.zeros((X.shape[0],X.shape[1],1))
+        X_p[:,:,0] = X
+        for i in range(n-1):
+            X_p = np.dstack((X_p,X))
+
+        X_q = np.zeros((1,X.shape[1],X.shape[0]))
+        X_t = np.zeros((1,X.shape[1],X.shape[0]))
+        X_t[0,:,:] = np.transpose(X)
+        X_q[0,:,:] = X_t[0,:,:]
+        for i in range(n-1):
+            X_q = np.vstack((X_q,X_t))
+            
+        # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2
+        # compute the exponent: k_{pq} = sum_j (X_{pj} - X_{qj})^2
+        exponent = np.sum(np.square(X_p - X_q), axis=1)
+        exponent = -exponent/(2*(length_scale**2))
+
+        self.K_exp = exponent
+        
+        return exponent
+        
+    
     # ##########################################################################
     # Computes the posterior mean of the Gaussian process regression and the
     # covariance for a set of test points.
