@@ -140,6 +140,8 @@ class GaussianProcessRegression():
     # ##########################################################################
     def KMat(self, X, params=None):
         if params is not None:
+            if not (len(params)==3):
+                print('ERROR! PARAMS IS: ', params)
             self.k.setParams(params)
         K = self.k.covMatrix(X)
         self.K = K # add a 'jitter' term for stability
@@ -246,8 +248,6 @@ class GaussianProcessRegression():
     # ##########################################################################
     def gradLogMarginalLikelihood(self, params=None):
         if params is not None:
-            if not (len(params)==3):
-                print('ERROR! PARAMS IS: ', params)
             K = self.KMat(self.X, params)
         else:
             K = self.K
