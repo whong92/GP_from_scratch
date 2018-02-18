@@ -262,7 +262,7 @@ class GaussianProcessRegression():
         # all multiplications are element-wise
         d_K_d_ln_sigmaf= 2*K_clean
         d_K_d_ln_lengthscale  = -2*K_exp*K_clean
-        d_K_d_ln_sigman =2*sigma2_n*np.identity(K.shape[0])
+        d_K_d_ln_sigman = 2*sigma2_n*np.identity(K.shape[0])
 
         # compute common factors of gradients
         K_inv = np.linalg.inv(K)
@@ -278,6 +278,7 @@ class GaussianProcessRegression():
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
 
         # Return the gradients
+        print('gradients: ', gradients)
         return gradients
 
     # ##########################################################################
