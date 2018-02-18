@@ -141,16 +141,14 @@ class GaussianProcessRegression():
     def KMat(self, X, params=None):
         if params is not None:
             if not (params.shape[0] == 3):
-                params_new = np.reshape(params, (3,))
-                params = None
-                params = params_new
-                #print('ERROR! PARAMS IS: ', params)
+                print('ERROR! PARAMS IS: ', params)
+                params = np.reshape(params, (3,))
             self.k.setParams(params)
         K = self.k.covMatrix(X)
         self.K = K # add a 'jitter' term for stability
         self.K_inv = np.linalg.inv(K) # cache the inverse for later use
         self.K_exp = self.compute_exponent(X, params) # cache the exponent for later use
-        # self.K += 1e-32*np.identity(self.K.shape[0])
+        # self.K += 1e-6*np.identity(self.K.shape[0])
         return K
 
     def compute_exponent(self, X, params=None):
