@@ -300,6 +300,9 @@ class GaussianProcessRegression():
         # Task 7:
         # TODO: Implement MSLL of the prediction fbar, cov given the target ya
 
+        print('cov shape ',cov.shape)
+        print('ya shape ',ya.shape)
+        print('fbar shape', fbar.shape)
         sigma2 = np.diag(cov)
         msll += 0.5*np.log(2*np.pi*sigma2)
         msll += np.square(ya-fbar)*0.5/sigma2
