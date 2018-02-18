@@ -301,6 +301,7 @@ class GaussianProcessRegression():
         # TODO: Implement MSLL of the prediction fbar, cov given the target ya
 
         sigma2 = cov
+        print(sigma2)
         msll += 0.5*np.log(2*np.pi*sigma2)
         msll += np.square(ya-fbar)*0.5/sigma2
         msll = np.mean(msll)
