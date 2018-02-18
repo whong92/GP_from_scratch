@@ -139,10 +139,10 @@ class GaussianProcessRegression():
     # in self.K_exp
     # ##########################################################################
     def KMat(self, X, params=None):
+        params = np.reshape(params, (3,))
         if params is not None:
             if not (params.shape[0] == 3):
                 print('ERROR! PARAMS IS: ', params)
-                params = np.reshape(params, (3,))
             self.k.setParams(params)
         K = self.k.covMatrix(X)
         self.K = K # add a 'jitter' term for stability
@@ -236,6 +236,7 @@ class GaussianProcessRegression():
         mll += 0.5*logdet
         mll+= self.K.shape[0]*np.log(2*np.pi)/2
         # Return mll
+        print(mll)
         return mll
 
     @staticmethod
