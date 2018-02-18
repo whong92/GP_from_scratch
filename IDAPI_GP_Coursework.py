@@ -145,7 +145,7 @@ class GaussianProcessRegression():
         self.K = K # add a 'jitter' term for stability
         self.K_inv = np.linalg.inv(K) # cache the inverse for later use
         self.K_exp = self.compute_exponent(X, params) # cache the exponent for later use
-        self.K += 1e-32*np.identity(self.K.shape[0])
+        # self.K += 1e-32*np.identity(self.K.shape[0])
         return K
 
     def compute_exponent(self, X, params=None):
