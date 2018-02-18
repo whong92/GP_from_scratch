@@ -248,7 +248,7 @@ class GaussianProcessRegression():
             K = self.KMat(self.X, params)
         else:
             K = self.K
-
+        K = K + 1e-32*np.identity(K.shape[0])
         # fetch cached inverse and exponent
         K_inv = self.K_inv
         K_exp = self.K_exp
