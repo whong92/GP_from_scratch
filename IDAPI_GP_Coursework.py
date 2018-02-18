@@ -142,7 +142,7 @@ class GaussianProcessRegression():
         if params is not None:
             self.k.setParams(params)
         K = self.k.covMatrix(X)
-        self.K = K
+        self.K = K + 1e-32*np.identity(K.shape[0]) # add a 'jitter' term for stability
         self.K_inv = np.linalg.inv(K) # cache the inverse for later use
         self.K_exp = self.compute_exponent(X, params) # cache the exponent for later use
         return K
