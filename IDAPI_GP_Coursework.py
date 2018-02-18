@@ -246,6 +246,8 @@ class GaussianProcessRegression():
     # ##########################################################################
     def gradLogMarginalLikelihood(self, params=None):
         if params is not None:
+            if not (len(params)==3):
+                print('ERROR! PARAMS IS: ', params)
             K = self.KMat(self.X, params)
         else:
             K = self.K
