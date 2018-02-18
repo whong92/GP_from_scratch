@@ -76,8 +76,6 @@ class RadialBasisFunction():
     # the RBF. If two matrices are provided, for a training set and a test set,
     # then covMatrix computes the covariance matrix between all inputs in the
     # training and test set.
-    # NOTE: Besides that, this function also caches the last computed covariance
-    # and its exponent in self.covMat and self.exponent, to save on some computation
     # ##########################################################################
     def covMatrix(self, X, Xa=None):
         if Xa is not None:
@@ -137,6 +135,8 @@ class GaussianProcessRegression():
     # ##########################################################################
     # Recomputes the covariance matrix and the inverse covariance
     # matrix when new hyperparameters are provided.
+    # NOTE: Besides that, this function also caches the exponent of the covariance
+    # in self.K_exp
     # ##########################################################################
     def KMat(self, X, params=None):
         if params is not None:
@@ -306,7 +306,7 @@ class GaussianProcessRegression():
     # the optimal hyperparameters using BFGS.
     # ##########################################################################
     def optimize(self, params, disp=True):
-        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp}, callback=GaussianProcessRegression.print_param)
+        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp})
         return res.x
 
 if __name__ == '__main__':
@@ -364,8 +364,8 @@ if __name__ == '__main__':
     # Task 6
 
     print('optimized hyperparams for yacht data: ')
-    params = gpr.optimize([0.5,np.log(0.1),0.5*np.log(0.5)])
-    #params = gpr.optimize([0.0,0.0,0.0])
+    #params = gpr.optimize([0.5,np.log(0.1),0.5*np.log(0.5)])
+    params = gpr.optimize([0.0,0.0,0.0])
     print(params)
     
 
