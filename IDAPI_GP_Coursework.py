@@ -277,7 +277,7 @@ class GaussianProcessRegression():
 
         # Combine gradients
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
-
+        print('gradient: ', gradients)
         # Return the gradients
         return gradients
 
