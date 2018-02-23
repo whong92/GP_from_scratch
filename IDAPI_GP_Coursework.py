@@ -89,23 +89,30 @@ class RadialBasisFunction():
 
         # Task 1:
 
-        # build the matrices X_p, where X_p[:,:,k] = X[:,:]
-        # and X_q[i,:,:] = [X[i,:], X[i,:], X[i,:] ...]
-        X_p = np.zeros((X.shape[0],X.shape[1],1))
-        X_p[:,:,0] = X
+        # Define the 3 tensor y_{pjq} = x_{pj} - x_{qj}
+        # Also can define  y_{pjq} = w_{pjq} - v_{pjq}
+        # So w_{pjq} = x_{pj} and v_{pjq} = x_{qj}
+        # w_{pjq} is a 3 dimensional matrix such that W[:,:,q] = X
+        # v_{pjq} is a 3 dimensional matrix such that V[p,:,:] = X'
+        # Y = W - V = x_{pj} - x_{qj}
+        
+        # build the matrices W, V
+        W = np.zeros((X.shape[0],X.shape[1],1))
+        W[:,:,0] = X
         for i in range(n-1):
-            X_p = np.dstack((X_p,X))
+            W = np.dstack((W,X))
 
-        X_q = np.zeros((1,X.shape[1],X.shape[0]))
+        V = np.zeros((1,X.shape[1],X.shape[0]))
         X_t = np.zeros((1,X.shape[1],X.shape[0]))
         X_t[0,:,:] = np.transpose(X)
-        X_q[0,:,:] = X_t[0,:,:]
+        V[0,:,:] = X_t[0,:,:]
         for i in range(n-1):
-            X_q = np.vstack((X_q,X_t))
+            V = np.vstack((V,X_t))
             
         # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2
-        # compute the exponent: k_{pq} = sum_j (X_{pj} - X_{qj})^2
-        exponent = np.sum(np.square(X_p - X_q), axis=1)
+        # compute the exponent: k_{pq} = sum_j (X_{pj} - X_{qj})^2 = sum_j (W-V)^2
+        Y = W - V
+        exponent = np.sum(np.square(Y), axis=1)
         exponent = -exponent/(2*(self.length_scale**2))
         covMat = np.exp(exponent)
         covMat = self.sigma2_f*covMat
@@ -156,23 +163,30 @@ class GaussianProcessRegression():
         length_scale = np.exp(params[1])
         n = X.shape[0]
             
-        # build the matrices X_p, where X_p[:,:,k] = X[:,:]
-        # and X_q[i,:,:] = [X[i,:], X[i,:], X[i,:] ...]
-        X_p = np.zeros((X.shape[0],X.shape[1],1))
-        X_p[:,:,0] = X
+        # Define the 3 tensor y_{pjq} = x_{pj} - x_{qj}
+        # Also can define  y_{pjq} = w_{pjq} - v_{pjq}
+        # So w_{pjq} = x_{pj} and v_{pjq} = x_{qj}
+        # w_{pjq} is a 3 dimensional matrix such that W[:,:,q] = X
+        # v_{pjq} is a 3 dimensional matrix such that V[p,:,:] = X'
+        # Y = W - V = x_{pj} - x_{qj}
+        
+        # build the matrices W, V
+        W = np.zeros((X.shape[0],X.shape[1],1))
+        W[:,:,0] = X
         for i in range(n-1):
-            X_p = np.dstack((X_p,X))
+            W = np.dstack((W,X))
 
-        X_q = np.zeros((1,X.shape[1],X.shape[0]))
+        V = np.zeros((1,X.shape[1],X.shape[0]))
         X_t = np.zeros((1,X.shape[1],X.shape[0]))
         X_t[0,:,:] = np.transpose(X)
-        X_q[0,:,:] = X_t[0,:,:]
+        V[0,:,:] = X_t[0,:,:]
         for i in range(n-1):
-            X_q = np.vstack((X_q,X_t))
+            V = np.vstack((V,X_t))
             
         # for each entry in the kernel matrix k_{pq} = ||x_p-x_q||^2
-        # compute the exponent: k_{pq} = sum_j (X_{pj} - X_{qj})^2
-        exponent = np.sum(np.square(X_p - X_q), axis=1)
+        # compute the exponent: k_{pq} = sum_j (X_{pj} - X_{qj})^2 = sum_j (W-V)^2
+        Y = W - V
+        exponent = np.sum(np.square(Y), axis=1)
         exponent = -exponent/(2*(length_scale**2))
 
         self.K_exp = exponent
@@ -277,7 +291,7 @@ class GaussianProcessRegression():
 
         # Combine gradients
         gradients = np.array([grad_ln_sigma_f, grad_ln_length_scale, grad_ln_sigma_n])
-        print('gradient: ', gradients)
+        print('gradients ', gradients)
         # Return the gradients
         return gradients
 
@@ -313,7 +327,7 @@ class GaussianProcessRegression():
     # the optimal hyperparameters using BFGS.
     # ##########################################################################
     def optimize(self, params, disp=True):
-        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp}, callback=GaussianProcessRegression.print_param)
+        res = minimize(self.logMarginalLikelihood, params, method ='BFGS', jac = self.gradLogMarginalLikelihood, options = {'disp':disp})
         return res.x
 
 if __name__ == '__main__':
@@ -371,8 +385,8 @@ if __name__ == '__main__':
     # Task 6
 
     print('optimized hyperparams for yacht data: ')
-    #params = gpr.optimize([0.5,np.log(0.1),0.5*np.log(0.5)])
-    params = gpr.optimize([0.0,0.0,0.0])
+    params = gpr.optimize([0.0,np.log(0.1),0.5*np.log(0.5)])
+    #params = gpr.optimize([0.0,0.0,0.0])
     print(params)
 
     gpr.msll(ya, mean_fa, cov_fa)
